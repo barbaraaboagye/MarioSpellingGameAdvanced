@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Word Jumper: English Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            touch-action: none;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(#1a2a6c, #b21f1f, #fdbb2d);
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            width: calc(100% - 20px);
+            z-index: 10;
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 25px;
+            border: 4px solid #000;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+            width: 90%;
+            max-width: 550px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.2);
+        }
+
+        .btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 10px;
+            cursor: pointer;
+            margin: 5px;
+            border-bottom: 4px solid #b33939;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .btn:hover { background: #ff6b81; }
+        .btn:active { margin-top: 2px; border-bottom: 2px solid #b33939; }
+
+        .category-btn {
+            background: #2ed573;
+            border-bottom-color: #26af5a;
+            width: 100%;
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: none;
+        }
+
+        .touch-btn {
+            width: 65px;
+            height: 65px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            pointer-events: auto;
+            user-select: none;
+        }
+
+        .hidden { display: none !important; }
+        .heart { color: #ff4757; font-size: 20px; }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            border: 2px solid #000;
+            margin-top: 10px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+        }
+
+        .branding {
+            font-size: 8px;
+            color: #666;
+            margin-top: 15px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="flex justify-between items-start">
+            <div>
+                <div class="text-sm">TARGET: <span id="word-to-spell" class="text-yellow-400">---</span></div>
+                <div class="mt-1 text-[10px]">PROGRESS: <span id="current-spelling" class="text-green-500"></span></div>
+            </div>
+            <div id="lives-display"></div>
+        </div>
+    </div>
+
+    <!-- Category Menu -->
+    <div id="category-modal" class="modal">
+        <h1 class="text-lg mb-4 text-blue-600">CHOOSE TOPIC</h1>
+        <div id="category-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        <hr class="my-4">
+        <button class="btn bg-gray-500 border-gray-700 w-full" onclick="showImport()">MANAGE WORDS / IMPORT .TXT</button>
+        <div class="branding">
+            Made with ❤️ for learners. &copy; 2026 Je Parle English.<br>elessons14@gmail.com
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal" class="modal hidden">
+        <h1 class="text-lg mb-2">WORD MANAGER</h1>
+        <p class="text-[10px] text-gray-500 mb-2">Paste words (comma separated) or upload a .txt file</p>
+        
+        <div class="flex flex-col gap-2 mb-2">
+            <select id="import-cat-select" class="border-2 border-black p-2 text-xs font-sans"></select>
+            <input type="file" id="file-input" accept=".txt" class="text-[10px] border border-dashed border-gray-400 p-2 bg-gray-50">
+        </div>
+
+        <textarea id="import-text" placeholder="e.g. BREAD, MILK, JUICE, APPLE"></textarea>
+        
+        <div class="flex justify-center flex-wrap">
+            <button class="btn" onclick="saveImport()">SAVE CHANGES</button>
+            <button class="btn bg-gray-400 border-gray-600" onclick="closeImport()">BACK</button>
+        </div>
+    </div>
+
+    <div id="start-modal" class="modal hidden">
+        <h1 class="text-xl mb-4 text-blue-600" id="current-cat-title">READY?</h1>
+        <p class="mb-4 text-xs">Find the letters for:<br><span id="modal-target-word" class="text-lg text-orange-500">WORD</span></p>
+        <button class="btn" onclick="startGame()">START</button>
+    </div>
+
+    <div id="game-over-modal" class="modal hidden">
+        <h1 class="text-2xl mb-4 text-red-600">GAME OVER</h1>
+        <button class="btn" onclick="location.reload()">RETRY</button>
+    </div>
+
+    <div id="win-modal" class="modal hidden">
+        <h1 class="text-xl mb-4 text-green-600">CORRECT!</h1>
+        <p id="win-message" class="mb-4 text-sm"></p>
+        <button class="btn" onclick="nextWord()">NEXT</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="controls">
+        <div class="flex gap-4">
+            <div class="touch-btn" id="leftBtn">←</div>
+            <div class="touch-btn" id="rightBtn">→</div>
+        </div>
+        <div class="touch-btn" id="jumpBtn">↑</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Extended 100+ Words Library
+        let categories = {
+            "Shopping": ["APPLE", "BREAD", "MILK", "SHIRT", "PRICE", "STORE", "GROCERY", "WALLET", "MARKET", "CHEESE", "BANANA", "CASHIER", "DISCOUNT", "RECEIPT", "BASKET"],
+            "Cooking": ["KITCHEN", "OVEN", "KNIFE", "PLATE", "SPOON", "BOIL", "RECIPE", "FLAVOR", "SPICES", "FRYING", "BAKING", "CHOPPING", "DINNER", "STOVE", "FRIDGE"],
+            "Body Parts": ["HEAD", "HAND", "FOOT", "ELBOW", "MOUTH", "EYES", "SHOULDER", "STOMACH", "FINGER", "TONGUE", "THROAT", "KNEE", "ANKLE", "WRIST", "HEART"],
+            "Days & Time": ["MONDAY", "FRIDAY", "SUNDAY", "WEEKEND", "TODAY", "MORNING", "AFTERNOON", "EVENING", "JANUARY", "AUGUST", "MINUTE", "SECOND", "QUARTER", "CALENDAR", "FUTURE"],
+            "Weather": ["SUNNY", "CLOUDY", "RAINY", "STORM", "WINDY", "SNOWY", "FREEZING", "THUNDER", "LIGHTNING", "BREEZE", "UMBRELLA", "WEATHER", "AUTUMN", "SUMMER", "WINTER"],
+            "Travel": ["AIRPLANE", "TICKET", "PASSPORT", "JOURNEY", "STATION", "AIRPORT", "BAGGAGE", "HOTEL", "TOURIST", "MAP", "CAMERA", "ISLAND", "MOUNTAIN", "SEASIDE", "FLIGHT"],
+            "House": ["WINDOW", "DOOR", "GARDEN", "BEDROOM", "SHOWER", "MIRROR", "CARPET", "PILLOW", "BLANKET", "GARAGE", "STAIRS", "CHIMNEY", "CURTAIN", "TOILET", "LIVING"],
+            "Animals": ["TIGER", "GIRAFFE", "MONKEY", "RABBIT", "CHICKEN", "DOLPHIN", "ELEPHANT", "PENGUIN", "LION", "TURTLE", "ZEBRA", "SQUIRREL", "HAMSTER", "PARROT", "KANGAROO"]
+        };
+
+        const config = {
+            gravity: 0.55,
+            jumpStrength: -13.5,
+            speed: 5.8,
+            groundHeight: 60,
+            maxLives: 3
+        };
+
+        let activeCategoryName = "";
+        let activeCategory = [];
+        let currentWordIndex = 0;
+        let targetWord = '';
+        let collectedLetters = '';
+        let lives = config.maxLives;
+        let gameRunning = false;
+        
+        const player = {
+            x: 50, y: 0, width: 30, height: 40,
+            velX: 0, velY: 0, grounded: false,
+            color: '#FF5733'
+        };
+
+        let platforms = [];
+        let letters = [];
+        let particles = [];
+        let clouds = [];
+        const keys = {};
+
+        // --- WORD MANAGEMENT & FILE IMPORT ---
+
+        function initCategories() {
+            const list = document.getElementById('category-list');
+            const select = document.getElementById('import-cat-select');
+            list.innerHTML = '';
+            select.innerHTML = '';
+            
+            Object.keys(categories).forEach(cat => {
+                const b = document.createElement('button');
+                b.className = 'btn category-btn';
+                b.innerText = cat;
+                b.onclick = () => selectCategory(cat);
+                list.appendChild(b);
+
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                select.appendChild(opt);
+            });
+        }
+
+        // File reader logic
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('import-text').value = e.target.result;
+            };
+            reader.readAsText(file);
+        });
+
+        function showImport() {
+            document.getElementById('category-modal').classList.add('hidden');
+            document.getElementById('import-modal').classList.remove('hidden');
+            // Default text area to current category's words
+            const currentCat = document.getElementById('import-cat-select').value;
+            document.getElementById('import-text').value = categories[currentCat].join(', ');
+        }
+
+        function closeImport() {
+            document.getElementById('import-modal').classList.add('hidden');
+            document.getElementById('category-modal').classList.remove('hidden');
+        }
+
+        function saveImport() {
+            const cat = document.getElementById('import-cat-select').value;
+            const text = document.getElementById('import-text').value;
+            if (text.trim()) {
+                // Split by comma or newline, clean up
+                const newWords = text.split(/[,\n]/).map(w => w.trim().toUpperCase()).filter(w => w.length > 0);
+                if (newWords.length > 0) {
+                    categories[cat] = newWords;
+                    alert(`Updated ${cat}! Now has ${newWords.length} words.`);
+                    closeImport();
+                } else {
+                    alert("No valid words found!");
+                }
+            }
+        }
+
+        function selectCategory(catName) {
+            activeCategoryName = catName;
+            activeCategory = categories[catName];
+            // Shuffle words in category for variety
+            activeCategory = [...activeCategory].sort(() => Math.random() - 0.5);
+            currentWordIndex = 0;
+            document.getElementById('category-modal').classList.add('hidden');
+            document.getElementById('current-cat-title').innerText = catName.toUpperCase();
+            prepareWord();
+        }
+
+        function prepareWord() {
+            targetWord = activeCategory[currentWordIndex];
+            collectedLetters = '';
+            document.getElementById('word-to-spell').innerText = targetWord;
+            document.getElementById('current-spelling').innerText = '';
+            document.getElementById('modal-target-word').innerText = targetWord;
+            document.getElementById('start-modal').classList.remove('hidden');
+            setupLevel();
+        }
+
+        // --- GAME ENGINE ---
+
+        function setupLevel() {
+            const groundY = canvas.height - config.groundHeight;
+            player.x = 50;
+            player.y = groundY - player.height;
+            player.velX = 0; player.velY = 0;
+
+            // Generate Chaotic Obstacle Course
+            platforms = [{ x: 0, y: groundY, w: canvas.width, h: config.groundHeight }];
+            
+            const numPlatforms = 14; 
+            for(let i=0; i < numPlatforms; i++) {
+                platforms.push({
+                    x: Math.random() * (canvas.width - 120),
+                    y: 80 + Math.random() * (groundY - 180),
+                    w: 80 + Math.random() * 100,
+                    h: 15
+                });
+            }
+
+            // Haphazard Letter Scattering
+            letters = [];
+            const chars = targetWord.split('');
+            chars.forEach((char, i) => {
+                // Pick any random platform (including ground)
+                const p = platforms[Math.floor(Math.random() * platforms.length)];
+                letters.push({
+                    char: char,
+                    x: p.x + (Math.random() * (p.w - 30)),
+                    y: p.y - 45,
+                    width: 35, height: 35,
+                    collected: false, 
+                    floating: Math.random() * Math.PI * 2
+                });
+            });
+
+            clouds = [];
+            for(let i=0; i<8; i++) {
+                clouds.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height*0.5, s: 0.3 + Math.random(), v: 0.1 + Math.random() });
+            }
+        }
+
+        function startGame() {
+            document.getElementById('start-modal').classList.add('hidden');
+            gameRunning = true;
+            updateLivesUI();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateLivesUI() {
+            const display = document.getElementById('lives-display');
+            display.innerHTML = '';
+            for(let i=0; i<lives; i++) display.innerHTML += '<span class="heart">❤</span>';
+        }
+
+        function loseLife() {
+            lives--;
+            updateLivesUI();
+            spawnParticles(player.x, player.y, '#ff0000');
+            if (lives <= 0) {
+                gameRunning = false;
+                document.getElementById('game-over-modal').classList.remove('hidden');
+            } else {
+                player.x = 50;
+                player.y = canvas.height - config.groundHeight - player.height;
+                player.velY = 0;
+            }
+        }
+
+        function nextWord() {
+            document.getElementById('win-modal').classList.add('hidden');
+            currentWordIndex++;
+            if (currentWordIndex >= activeCategory.length) {
+                currentWordIndex = 0;
+                document.getElementById('category-modal').classList.remove('hidden');
+            } else {
+                prepareWord();
+            }
+        }
+
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+        
+        const setupTouch = (id, key) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+        };
+        setupTouch('leftBtn', 'ArrowLeft');
+        setupTouch('rightBtn', 'ArrowRight');
+        setupTouch('jumpBtn', 'Space');
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            if (keys['ArrowLeft']) player.velX = -config.speed;
+            else if (keys['ArrowRight']) player.velX = config.speed;
+            else player.velX *= 0.85;
+
+            if ((keys['ArrowUp'] || keys['Space']) && player.grounded) {
+                player.velY = config.jumpStrength;
+                player.grounded = false;
+            }
+            if (!(keys['ArrowUp'] || keys['Space']) && player.velY < -4) player.velY = -4;
+
+            player.velY += config.gravity;
+            player.x += player.velX;
+            player.y += player.velY;
+
+            player.grounded = false;
+            platforms.forEach(p => {
+                if (player.x + player.width > p.x && player.x < p.x + p.w) {
+                    if (player.velY >= 0 && 
+                        player.y + player.height <= p.y + player.velY + 5 && 
+                        player.y + player.height >= p.y - 5) {
+                        player.y = p.y - player.height;
+                        player.velY = 0;
+                        player.grounded = true;
+                    }
+                }
+            });
+
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            if (player.y > canvas.height) loseLife();
+
+            letters.forEach(l => {
+                if (!l.collected) {
+                    if (player.x < l.x + l.width && player.x + player.width > l.x &&
+                        player.y < l.y + l.height && player.y + player.height > l.y) {
+                        
+                        const nextChar = targetWord[collectedLetters.length];
+                        if (l.char === nextChar) {
+                            l.collected = true;
+                            collectedLetters += l.char;
+                            document.getElementById('current-spelling').innerText = collectedLetters;
+                            spawnParticles(l.x + 17, l.y + 17, '#2ecc71');
+                            if (collectedLetters === targetWord) {
+                                gameRunning = false;
+                                document.getElementById('win-message').innerText = `EXCELLENT: ${targetWord}`;
+                                document.getElementById('win-modal').classList.remove('hidden');
+                            }
+                        } else {
+                            loseLife();
+                            player.velY = -7;
+                            player.velX = (player.x < l.x) ? -10 : 10;
+                        }
+                    }
+                }
+            });
+
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.025;
+                if(p.life <= 0) particles.splice(i, 1);
+            });
+
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Background clouds
+            ctx.fillStyle = "rgba(255,255,255,0.3)";
+            clouds.forEach(c => {
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, 30*c.s, 0, Math.PI*2);
+                ctx.arc(c.x+20*c.s, c.y-10*c.s, 20*c.s, 0, Math.PI*2);
+                ctx.fill();
+                c.x += c.v;
+                if (c.x > canvas.width + 100) c.x = -100;
+            });
+
+            // Platforms
+            platforms.forEach((p, i) => {
+                ctx.fillStyle = i === 0 ? '#1b5e20' : '#3e2723';
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+                ctx.fillStyle = i === 0 ? '#4caf50' : '#5d4037';
+                ctx.fillRect(p.x, p.y, p.w, 4);
+            });
+
+            // Letters
+            letters.forEach(l => {
+                if (!l.collected) {
+                    l.floating += 0.08;
+                    const bounce = Math.sin(l.floating) * 8;
+                    ctx.fillStyle = '#ffeb3b';
+                    ctx.beginPath();
+                    ctx.arc(l.x + 17, l.y + 17 + bounce, 18, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.font = '14px "Press Start 2P"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(l.char, l.x + 17, l.y + 24 + bounce);
+                }
+            });
+
+            // Player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + 22, player.y + 10, 5, 5); // Eye
+
+            // Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 3, 3);
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        function spawnParticles(x, y, color) {
+            for(let i=0; i<12; i++) {
+                particles.push({
+                    x, y, vx: (Math.random()-0.5)*9, vy: (Math.random()-0.5)*9,
+                    life: 1.0, color
+                });
+            }
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (gameRunning) setupLevel();
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        initCategories();
+
+    </script>
+</body>
+</html>
