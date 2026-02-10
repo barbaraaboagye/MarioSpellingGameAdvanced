@@ -61,10 +61,11 @@
             margin: 5px;
             border-bottom: 4px solid #b33939;
             font-family: 'Press Start 2P', cursive;
+            transition: all 0.1s;
         }
 
-        .btn:hover { background: #ff6b81; }
-        .btn:active { margin-top: 2px; border-bottom: 2px solid #b33939; }
+        .btn:hover { background: #ff6b81; transform: translateY(-1px); }
+        .btn:active { transform: translateY(2px); border-bottom-width: 2px; }
 
         .category-btn {
             background: #2ed573;
@@ -86,22 +87,25 @@
         }
 
         .touch-btn {
-            width: 65px;
-            height: 65px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid white;
-            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 3px solid white;
+            border-radius: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 28px;
             color: white;
             pointer-events: auto;
             user-select: none;
+            backdrop-filter: blur(4px);
         }
 
+        .touch-btn:active { background: rgba(255, 255, 255, 0.5); }
+
         .hidden { display: none !important; }
-        .heart { color: #ff4757; font-size: 20px; }
+        .heart { color: #ff4757; font-size: 20px; margin-left: 5px; }
 
         textarea {
             width: 100%;
@@ -128,9 +132,9 @@
         <div class="flex justify-between items-start">
             <div>
                 <div class="text-sm">TARGET: <span id="word-to-spell" class="text-yellow-400">---</span></div>
-                <div class="mt-1 text-[10px]">PROGRESS: <span id="current-spelling" class="text-green-500"></span></div>
+                <div class="mt-1 text-[10px]">PROGRESS: <span id="current-spelling" class="text-green-400"></span></div>
             </div>
-            <div id="lives-display"></div>
+            <div id="lives-display" class="flex"></div>
         </div>
     </div>
 
@@ -139,20 +143,19 @@
         <h1 class="text-lg mb-4 text-blue-600">CHOOSE TOPIC</h1>
         <div id="category-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
         <hr class="my-4">
-        <button class="btn bg-gray-500 border-gray-700 w-full" onclick="showImport()">MANAGE WORDS / IMPORT .TXT</button>
+        <button class="btn bg-gray-500 border-gray-700 w-full" onclick="showImport()">MANAGE WORDS</button>
         <div class="branding">
-            Made with ❤️ for learners. &copy; 2026 Je Parle English.<br>elessons14@gmail.com
+            Made with ❤️ for learners.<br>elessons14@gmail.com
         </div>
     </div>
 
     <!-- Import Modal -->
     <div id="import-modal" class="modal hidden">
         <h1 class="text-lg mb-2">WORD MANAGER</h1>
-        <p class="text-[10px] text-gray-500 mb-2">Paste words (comma separated) or upload a .txt file</p>
+        <p class="text-[10px] text-gray-500 mb-2">Paste words (comma separated)</p>
         
         <div class="flex flex-col gap-2 mb-2">
-            <select id="import-cat-select" class="border-2 border-black p-2 text-xs font-sans"></select>
-            <input type="file" id="file-input" accept=".txt" class="text-[10px] border border-dashed border-gray-400 p-2 bg-gray-50">
+            <select id="import-cat-select" class="border-2 border-black p-2 text-xs font-sans" onchange="loadWordsToTextarea()"></select>
         </div>
 
         <textarea id="import-text" placeholder="e.g. BREAD, MILK, JUICE, APPLE"></textarea>
@@ -165,19 +168,20 @@
 
     <div id="start-modal" class="modal hidden">
         <h1 class="text-xl mb-4 text-blue-600" id="current-cat-title">READY?</h1>
-        <p class="mb-4 text-xs">Find the letters for:<br><span id="modal-target-word" class="text-lg text-orange-500">WORD</span></p>
-        <button class="btn" onclick="startGame()">START</button>
+        <p class="mb-4 text-xs text-gray-600">The letters are scattered! Find them in order:<br><span id="modal-target-word" class="text-lg text-orange-500">WORD</span></p>
+        <button class="btn" onclick="startGame()">START SEARCHING!</button>
     </div>
 
     <div id="game-over-modal" class="modal hidden">
         <h1 class="text-2xl mb-4 text-red-600">GAME OVER</h1>
+        <p id="final-score-text" class="mb-4 text-xs">Try again to master the word!</p>
         <button class="btn" onclick="location.reload()">RETRY</button>
     </div>
 
     <div id="win-modal" class="modal hidden">
-        <h1 class="text-xl mb-4 text-green-600">CORRECT!</h1>
+        <h1 class="text-xl mb-4 text-green-600">BRILLIANT!</h1>
         <p id="win-message" class="mb-4 text-sm"></p>
-        <button class="btn" onclick="nextWord()">NEXT</button>
+        <button class="btn" onclick="nextWord()">NEXT WORD</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -194,7 +198,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Extended 100+ Words Library
         let categories = {
             "Shopping": ["APPLE", "BREAD", "MILK", "SHIRT", "PRICE", "STORE", "GROCERY", "WALLET", "MARKET", "CHEESE", "BANANA", "CASHIER", "DISCOUNT", "RECEIPT", "BASKET"],
             "Cooking": ["KITCHEN", "OVEN", "KNIFE", "PLATE", "SPOON", "BOIL", "RECIPE", "FLAVOR", "SPICES", "FRYING", "BAKING", "CHOPPING", "DINNER", "STOVE", "FRIDGE"],
@@ -207,11 +210,12 @@
         };
 
         const config = {
-            gravity: 0.55,
-            jumpStrength: -13.5,
-            speed: 5.8,
-            groundHeight: 60,
-            maxLives: 3
+            gravity: 0.6,
+            jumpStrength: -15,
+            speed: 7,
+            groundHeight: 80,
+            maxLives: 3,
+            layerHeight: 110, // Distance between vertical layers
         };
 
         let activeCategoryName = "";
@@ -223,7 +227,7 @@
         let gameRunning = false;
         
         const player = {
-            x: 50, y: 0, width: 30, height: 40,
+            x: 50, y: 0, width: 34, height: 46,
             velX: 0, velY: 0, grounded: false,
             color: '#FF5733'
         };
@@ -234,7 +238,7 @@
         let clouds = [];
         const keys = {};
 
-        // --- WORD MANAGEMENT & FILE IMPORT ---
+        // --- WORD MANAGEMENT ---
 
         function initCategories() {
             const list = document.getElementById('category-list');
@@ -256,23 +260,15 @@
             });
         }
 
-        // File reader logic
-        document.getElementById('file-input').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('import-text').value = e.target.result;
-            };
-            reader.readAsText(file);
-        });
+        function loadWordsToTextarea() {
+            const cat = document.getElementById('import-cat-select').value;
+            document.getElementById('import-text').value = categories[cat].join(', ');
+        }
 
         function showImport() {
             document.getElementById('category-modal').classList.add('hidden');
             document.getElementById('import-modal').classList.remove('hidden');
-            // Default text area to current category's words
-            const currentCat = document.getElementById('import-cat-select').value;
-            document.getElementById('import-text').value = categories[currentCat].join(', ');
+            loadWordsToTextarea();
         }
 
         function closeImport() {
@@ -284,23 +280,18 @@
             const cat = document.getElementById('import-cat-select').value;
             const text = document.getElementById('import-text').value;
             if (text.trim()) {
-                // Split by comma or newline, clean up
                 const newWords = text.split(/[,\n]/).map(w => w.trim().toUpperCase()).filter(w => w.length > 0);
                 if (newWords.length > 0) {
                     categories[cat] = newWords;
-                    alert(`Updated ${cat}! Now has ${newWords.length} words.`);
+                    alert(`Updated ${cat}!`);
                     closeImport();
-                } else {
-                    alert("No valid words found!");
                 }
             }
         }
 
         function selectCategory(catName) {
             activeCategoryName = catName;
-            activeCategory = categories[catName];
-            // Shuffle words in category for variety
-            activeCategory = [...activeCategory].sort(() => Math.random() - 0.5);
+            activeCategory = [...categories[catName]].sort(() => Math.random() - 0.5);
             currentWordIndex = 0;
             document.getElementById('category-modal').classList.add('hidden');
             document.getElementById('current-cat-title').innerText = catName.toUpperCase();
@@ -321,42 +312,56 @@
 
         function setupLevel() {
             const groundY = canvas.height - config.groundHeight;
-            player.x = 50;
+            player.x = canvas.width / 2 - player.width / 2;
             player.y = groundY - player.height;
             player.velX = 0; player.velY = 0;
 
-            // Generate Chaotic Obstacle Course
             platforms = [{ x: 0, y: groundY, w: canvas.width, h: config.groundHeight }];
+            letters = [];
             
-            const numPlatforms = 14; 
-            for(let i=0; i < numPlatforms; i++) {
-                platforms.push({
-                    x: Math.random() * (canvas.width - 120),
-                    y: 80 + Math.random() * (groundY - 180),
-                    w: 80 + Math.random() * 100,
-                    h: 15
-                });
+            // Generate a full screen of random platforms
+            const numLayers = Math.floor(groundY / config.layerHeight);
+            let platformPool = [];
+
+            for (let i = 1; i <= numLayers; i++) {
+                const y = groundY - (i * config.layerHeight);
+                // Each layer has 2-3 platforms
+                const count = 2 + Math.floor(Math.random() * 2);
+                for (let j = 0; j < count; j++) {
+                    const w = 110 + Math.random() * 70;
+                    const x = Math.random() * (canvas.width - w);
+                    
+                    // Collision Buffer: Check if this platform is too close to others in the same layer
+                    let overlap = platformPool.some(p => p.y === y && Math.abs(p.x - x) < 150);
+                    if (!overlap) {
+                        const plat = { x, y, w, h: 22 };
+                        platformPool.push(plat);
+                        platforms.push(plat);
+                    }
+                }
             }
 
-            // Haphazard Letter Scattering
-            letters = [];
+            // Shuffle the word characters
             const chars = targetWord.split('');
+            const availablePlatforms = [...platformPool].sort(() => Math.random() - 0.5);
+
             chars.forEach((char, i) => {
-                // Pick any random platform (including ground)
-                const p = platforms[Math.floor(Math.random() * platforms.length)];
+                // If we ran out of platforms (unlikely), pick ground
+                const plat = availablePlatforms[i] || platforms[0];
+                
                 letters.push({
                     char: char,
-                    x: p.x + (Math.random() * (p.w - 30)),
-                    y: p.y - 45,
-                    width: 35, height: 35,
-                    collected: false, 
+                    x: plat.x + (plat.w / 2) - 21,
+                    y: plat.y - 55,
+                    width: 42, height: 42,
+                    collected: false,
                     floating: Math.random() * Math.PI * 2
                 });
             });
 
             clouds = [];
-            for(let i=0; i<8; i++) {
-                clouds.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height*0.5, s: 0.3 + Math.random(), v: 0.1 + Math.random() });
+            for(let i=0; i<7; i++) {
+                clouds.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height*0.7, s: 0.4 + Math.random(), v: 0.2 + Math.random() * 0.3 });
             }
         }
 
@@ -376,14 +381,15 @@
         function loseLife() {
             lives--;
             updateLivesUI();
-            spawnParticles(player.x, player.y, '#ff0000');
+            spawnParticles(player.x + player.width/2, player.y + player.height/2, '#ff0000');
+            
             if (lives <= 0) {
                 gameRunning = false;
                 document.getElementById('game-over-modal').classList.remove('hidden');
             } else {
-                player.x = 50;
-                player.y = canvas.height - config.groundHeight - player.height;
-                player.velY = 0;
+                // Flash effect or small reset
+                player.velY = -5;
+                player.grounded = false;
             }
         }
 
@@ -413,26 +419,28 @@
         function gameLoop() {
             if (!gameRunning) return;
 
+            // Player movement
             if (keys['ArrowLeft']) player.velX = -config.speed;
             else if (keys['ArrowRight']) player.velX = config.speed;
-            else player.velX *= 0.85;
+            else player.velX *= 0.8;
 
-            if ((keys['ArrowUp'] || keys['Space']) && player.grounded) {
+            if ((keys['ArrowUp'] || keys['Space'] || keys['ArrowUp']) && player.grounded) {
                 player.velY = config.jumpStrength;
                 player.grounded = false;
             }
-            if (!(keys['ArrowUp'] || keys['Space']) && player.velY < -4) player.velY = -4;
+            if (!(keys['ArrowUp'] || keys['Space']) && player.velY < -6) player.velY = -6;
 
             player.velY += config.gravity;
             player.x += player.velX;
             player.y += player.velY;
 
+            // Collision with platforms
             player.grounded = false;
             platforms.forEach(p => {
                 if (player.x + player.width > p.x && player.x < p.x + p.w) {
                     if (player.velY >= 0 && 
-                        player.y + player.height <= p.y + player.velY + 5 && 
-                        player.y + player.height >= p.y - 5) {
+                        player.y + player.height <= p.y + player.velY + 12 && 
+                        player.y + player.height >= p.y) {
                         player.y = p.y - player.height;
                         player.velY = 0;
                         player.grounded = true;
@@ -440,10 +448,17 @@
                 }
             });
 
+            // Bounds
             if (player.x < 0) player.x = 0;
             if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-            if (player.y > canvas.height) loseLife();
+            if (player.y > canvas.height + 50) {
+                loseLife();
+                player.y = canvas.height - config.groundHeight - player.height;
+                player.x = canvas.width / 2;
+                player.velY = 0;
+            }
 
+            // Picking up letters
             letters.forEach(l => {
                 if (!l.collected) {
                     if (player.x < l.x + l.width && player.x + player.width > l.x &&
@@ -454,25 +469,31 @@
                             l.collected = true;
                             collectedLetters += l.char;
                             document.getElementById('current-spelling').innerText = collectedLetters;
-                            spawnParticles(l.x + 17, l.y + 17, '#2ecc71');
+                            spawnParticles(l.x + 21, l.y + 21, '#4ade80');
+                            
                             if (collectedLetters === targetWord) {
                                 gameRunning = false;
-                                document.getElementById('win-message').innerText = `EXCELLENT: ${targetWord}`;
-                                document.getElementById('win-modal').classList.remove('hidden');
+                                setTimeout(() => {
+                                    document.getElementById('win-message').innerText = `YOU SPELLED: ${targetWord}`;
+                                    document.getElementById('win-modal').classList.remove('hidden');
+                                }, 200);
                             }
                         } else {
                             loseLife();
-                            player.velY = -7;
-                            player.velX = (player.x < l.x) ? -10 : 10;
+                            // Push away from wrong letter
+                            player.velY = -8;
+                            player.velX = (player.x < l.x) ? -8 : 8;
                         }
                     }
                 }
             });
 
-            particles.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy; p.life -= 0.025;
+            // Update particles
+            for(let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.life -= 0.03;
                 if(p.life <= 0) particles.splice(i, 1);
-            });
+            }
 
             draw();
             requestAnimationFrame(gameLoop);
@@ -481,60 +502,81 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Background clouds
-            ctx.fillStyle = "rgba(255,255,255,0.3)";
+            // Clouds
+            ctx.fillStyle = "rgba(255,255,255,0.2)";
             clouds.forEach(c => {
                 ctx.beginPath();
-                ctx.arc(c.x, c.y, 30*c.s, 0, Math.PI*2);
-                ctx.arc(c.x+20*c.s, c.y-10*c.s, 20*c.s, 0, Math.PI*2);
+                ctx.arc(c.x, c.y, 40*c.s, 0, Math.PI*2);
+                ctx.arc(c.x+30*c.s, c.y-15*c.s, 30*c.s, 0, Math.PI*2);
+                ctx.arc(c.x-30*c.s, c.y-10*c.s, 25*c.s, 0, Math.PI*2);
                 ctx.fill();
                 c.x += c.v;
-                if (c.x > canvas.width + 100) c.x = -100;
+                if (c.x > canvas.width + 150) c.x = -150;
             });
 
             // Platforms
             platforms.forEach((p, i) => {
-                ctx.fillStyle = i === 0 ? '#1b5e20' : '#3e2723';
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.fillRect(p.x + 5, p.y + 5, p.w, p.h);
+
+                ctx.fillStyle = i === 0 ? '#2e7d32' : '#5d4037';
                 ctx.fillRect(p.x, p.y, p.w, p.h);
-                ctx.fillStyle = i === 0 ? '#4caf50' : '#5d4037';
-                ctx.fillRect(p.x, p.y, p.w, 4);
+                
+                ctx.fillStyle = i === 0 ? '#4caf50' : '#795548';
+                ctx.fillRect(p.x, p.y, p.w, 6);
             });
 
             // Letters
-            letters.forEach(l => {
+            letters.forEach((l, idx) => {
                 if (!l.collected) {
                     l.floating += 0.08;
-                    const bounce = Math.sin(l.floating) * 8;
-                    ctx.fillStyle = '#ffeb3b';
+                    const bounce = Math.sin(l.floating) * 10;
+                    
+                    // Highlight the next letter to find
+                    const isNext = collectedLetters.length === idx;
+                    if (isNext) {
+                        ctx.shadowBlur = 20;
+                        ctx.shadowColor = "white";
+                    }
+
+                    ctx.fillStyle = isNext ? '#ffee58' : '#fff59d';
                     ctx.beginPath();
-                    ctx.arc(l.x + 17, l.y + 17 + bounce, 18, 0, Math.PI*2);
+                    ctx.arc(l.x + 21, l.y + 21 + bounce, 21, 0, Math.PI*2);
                     ctx.fill();
+                    
+                    ctx.shadowBlur = 0;
                     ctx.fillStyle = '#000';
-                    ctx.font = '14px "Press Start 2P"';
+                    ctx.font = '16px "Press Start 2P"';
                     ctx.textAlign = 'center';
-                    ctx.fillText(l.char, l.x + 17, l.y + 24 + bounce);
+                    ctx.fillText(l.char, l.x + 21, l.y + 29 + bounce);
                 }
             });
 
             // Player
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(player.x + 4, player.y + 4, player.width, player.height);
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(player.x + 20, player.y + 10, 8, 8);
             ctx.fillStyle = '#000';
-            ctx.fillRect(player.x + 22, player.y + 10, 5, 5); // Eye
+            ctx.fillRect(player.x + 24, player.y + 12, 4, 4);
 
             // Particles
             particles.forEach(p => {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, 3, 3);
+                ctx.fillRect(p.x, p.y, 4, 4);
             });
             ctx.globalAlpha = 1;
         }
 
         function spawnParticles(x, y, color) {
-            for(let i=0; i<12; i++) {
+            for(let i=0; i<15; i++) {
                 particles.push({
-                    x, y, vx: (Math.random()-0.5)*9, vy: (Math.random()-0.5)*9,
+                    x, y, vx: (Math.random()-0.5)*12, vy: (Math.random()-0.5)*12,
                     life: 1.0, color
                 });
             }
